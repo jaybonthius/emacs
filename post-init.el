@@ -1,46 +1,323 @@
 ;;; post-init.el --- DESCRIPTION -*- no-byte-compile: t; lexical-binding: t; -*-
+;;; Commentary:
+;;; Code:
 
 
-;; --------------------------------------------------------------------------------
+;; MY STUFF --------------------------------------------------------------------------------
 
-; ;; Native compilation enhances Emacs performance by converting Elisp code into
-; ;; native machine code, resulting in faster execution and improved
-; ;; responsiveness.
-; ;;
-; ;; Ensure adding the following compile-angel code at the very beginning
-; ;; of your `~/.emacs.d/post-init.el` file, before all other packages.
-; (use-package compile-angel
-;   :demand t
-;   :ensure t
-;   :custom
-;   ;; Set `compile-angel-verbose` to nil to suppress output from compile-angel.
-;   ;; Drawback: The minibuffer will not display compile-angel's actions.
-;   (compile-angel-verbose t)
+(when (eq system-type 'darwin)
+  (setq mac-option-key-is-meta nil)
+  (setq mac-command-key-is-meta t)
+  (setq mac-command-modifier 'control)
+  (setq mac-option-modifier nil))
 
-;   :config
-;   ;; The following directive prevents compile-angel from compiling your init
-;   ;; files. If you choose to remove this push to `compile-angel-excluded-files'
-;   ;; and compile your pre/post-init files, ensure you understand the
-;   ;; implications and thoroughly test your code. For example, if you're using
-;   ;; the `use-package' macro, you'll need to explicitly add:
-;   ;; (eval-when-compile (require 'use-package))
-;   ;; at the top of your init file.
-;   (push "/init.el" compile-angel-excluded-files)
-;   (push "/early-init.el" compile-angel-excluded-files)
-;   (push "/pre-init.el" compile-angel-excluded-files)
-;   (push "/post-init.el" compile-angel-excluded-files)
-;   (push "/pre-early-init.el" compile-angel-excluded-files)
-;   (push "/post-early-init.el" compile-angel-excluded-files)
+(when (eq system-type 'darwin)
+  (setq
+   ns-command-modifier 'control
+   ns-option-modifier 'meta
+   ns-control-modifier 'super
+   ns-function-modifier 'hyper))
 
-;   ;; A local mode that compiles .el files whenever the user saves them.
-;   ;; (add-hook 'emacs-lisp-mode-hook #'compile-angel-on-save-local-mode)
+(setq-default cursor-type 'bar)
 
-;   ;; A global mode that compiles .el files prior to loading them via `load' or
-;   ;; `require'. Additionally, it compiles all packages that were loaded before
-;   ;; the mode `compile-angel-on-load-mode' was activated.
-;   (compile-angel-on-load-mode 1))
+(unless (display-graphic-p)
+  (xterm-mouse-mode 1))
 
-;; --------------------------------------------------------------------------------
+;; Remove title bar and window decorations (including stoplight buttons)
+(add-to-list 'default-frame-alist '(undecorated . t))
+
+;; Disable all active themes
+(mapc #'disable-theme custom-enabled-themes)
+
+(set-face-attribute 'default nil
+                    :height 150 :weight 'medium :family "Dank Mono")
+
+;; Themes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defvar jb-current-theme-mode nil
+  "Current theme mode: 'light, 'dark, or nil for system detection.")
+
+(defun jb-remove-themes ()
+  "Remove all of the themes that are currently enabled."
+  (interactive)
+  (mapcar #'disable-theme custom-enabled-themes))
+
+(defun jb-load-theme ()
+  "Load a theme interactively, removing all other themes first."
+  (interactive)
+  (jb-remove-themes)
+  (call-interactively #'load-theme))
+
+(defun jb-system-dark-mode-p ()
+  "Check if macOS is in dark mode."
+  (when (eq system-type 'darwin)
+    (not (null (string-match-p "Dark"
+                               (shell-command-to-string
+                                "defaults read -g AppleInterfaceStyle 2>/dev/null || echo Light"))))))
+
+(defun jb-load-light-theme ()
+  "Load the light theme."
+  (interactive)
+  (jb-remove-themes)
+  (load-theme 'twilight-bright t)
+  (setq jb-current-theme-mode 'light)
+  (message "Switched to light theme"))
+
+(defun jb-load-dark-theme ()
+  "Load the dark theme."
+  (interactive)
+  (jb-remove-themes)
+  (load-theme 'twilight-anti-bright t)
+  (setq jb-current-theme-mode 'dark)
+  (message "Switched to dark theme"))
+
+(defun jb-toggle-theme ()
+  "Toggle between light and dark themes."
+  (interactive)
+  (cond
+   ((eq jb-current-theme-mode 'light) (jb-load-dark-theme))
+   ((eq jb-current-theme-mode 'dark) (jb-load-light-theme))
+   (t (if (jb-system-dark-mode-p)
+          (jb-load-light-theme)
+        (jb-load-dark-theme)))))
+
+(defun jb-detect-and-apply-system-theme ()
+  "Detect system theme and apply appropriate Emacs theme."
+  (interactive)
+  (if (jb-system-dark-mode-p)
+      (progn
+        (jb-remove-themes)
+        (load-theme 'twilight-anti-bright t)
+        (setq jb-current-theme-mode 'dark))
+    (progn
+      (jb-remove-themes)
+      (load-theme 'twilight-bright t)
+      (setq jb-current-theme-mode 'light))))
+
+;; Add local theme directories to custom-theme-load-path
+(let ((themes-dir (file-name-directory (or load-file-name buffer-file-name))))
+  (add-to-list 'custom-theme-load-path (expand-file-name "themes/twilight-bright-theme" themes-dir))
+  (add-to-list 'custom-theme-load-path (expand-file-name "themes/twilight-anti-bright-theme" themes-dir)))
+
+(jb-detect-and-apply-system-theme)
+
+;; Olivetti ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package olivetti
+  :ensure t
+                                        ; :bind (("C-c z" . olivetti-mode))
+  :config
+  (setq-default olivetti-body-width 100))
+
+(use-package auto-olivetti
+  :custom (auto-olivetti-enabled-modes '(prog-mode helpful-mode ibuffer-mode image-mode elisp-mode racket-mode python-mode))
+  :ensure (auto-olivetti :host sourcehut :repo "ashton314/auto-olivetti")
+  :config
+  (auto-olivetti-mode))
+
+;; keep me from accidentally zooming after using scroll wheel
+(global-unset-key (kbd "C-<wheel-up>"))
+(global-unset-key (kbd "C-<wheel-down>"))
+
+                                        ; for terminal emacs
+(define-key key-translation-map (kbd "<f12>") 'event-apply-control-modifier)
+
+;; Ensure transient is upgraded before magit loads
+(use-package transient
+  :ensure t)
+
+(use-package magit
+  :ensure t
+  :bind (("C-x g" . magit-status)))
+
+
+;; SYMEX
+(use-package symex-core
+  :ensure (:host github
+                 :repo "drym-org/symex.el"
+                 :files ("symex-core/symex*.el")))
+
+(use-package symex
+  :after symex-core
+  :ensure (:host github
+                 :repo "drym-org/symex.el"
+                 :files ("symex/symex*.el"
+                         "symex/doc/*.texi"
+                         "symex/doc/figures"))
+  :config
+  (symex-mode 1)
+  (setq symex-orientation 'inverted)
+  (global-set-key (kbd "s-;") #'symex-mode-interface)
+  (lithium-define-keys symex-editing-mode
+    (("h" symex-insert-at-beginning :exit)
+     ("i" symex-go-down)
+     ("j" symex-go-backward)
+     ("k" symex-go-up)
+     ("l" symex-go-forward)
+     ("C-i" symex-descend-branch)
+     ("C-k" symex-climb-branch)
+     ("M-i" symex-goto-lowest)
+     ("M-k" symex-goto-highest)
+     ("gi" symex-next-visual-line)
+     ("gj" backward-char)
+     ("gk" symex-previous-visual-line)
+     ("gl" forward-char)
+     ("H" symex-insert-before :exit)
+     ("A" symex-append-after :exit)
+     ("a" symex-append-at-end :exit)
+     ("u" undo)
+     ("U" undo-redo))))
+
+(use-package symex-ide
+  :after symex
+  :ensure (:host github
+                 :repo "drym-org/symex.el"
+                 :files ("symex-ide/symex*.el"))
+  :config
+  (symex-ide-mode 1))
+
+;; Meow
+(use-package meow
+  :ensure (meow :host github :repo "meow-edit/meow")
+  :config
+  ;; Define the QWERTY keybinding setup
+  (defun meow-setup ()
+    (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
+
+    ;; Motion state keys (for special modes like dired)
+    (meow-motion-overwrite-define-key
+     '("j" . meow-next)
+     '("k" . meow-prev)
+     '("<escape>" . ignore))
+
+    ;; Leader key bindings (accessed via SPC)
+    (meow-leader-define-key
+     ;; SPC j/k will run the original command in MOTION state
+     '("j" . "H-j")
+     '("k" . "H-k")
+     ;; Use SPC (0-9) for digit arguments
+     '("1" . meow-digit-argument)
+     '("2" . meow-digit-argument)
+     '("3" . meow-digit-argument)
+     '("4" . meow-digit-argument)
+     '("5" . meow-digit-argument)
+     '("6" . meow-digit-argument)
+     '("7" . meow-digit-argument)
+     '("8" . meow-digit-argument)
+     '("9" . meow-digit-argument)
+     '("0" . meow-digit-argument)
+     '("/" . meow-keypad-describe-key)
+     '("?" . meow-cheatsheet))
+
+    ;; Normal state keys (main modal editing keys)
+    (meow-normal-define-key
+     ;; Expansion
+     '("0" . meow-expand-0)
+     '("9" . meow-expand-9)
+     '("8" . meow-expand-8)
+     '("7" . meow-expand-7)
+     '("6" . meow-expand-6)
+     '("5" . meow-expand-5)
+     '("4" . meow-expand-4)
+     '("3" . meow-expand-3)
+     '("2" . meow-expand-2)
+     '("1" . meow-expand-1)
+     '("-" . negative-argument)
+     '(";" . meow-reverse)
+     '("," . meow-inner-of-thing)
+     '("." . meow-bounds-of-thing)
+     '("[" . meow-beginning-of-thing)
+     '("]" . meow-end-of-thing)
+     ;; Movement and editing
+     '("a" . meow-append)
+     '("A" . meow-open-below)
+     '("b" . meow-back-word)
+     '("B" . meow-back-symbol)
+     '("c" . meow-change)
+     '("d" . meow-delete)
+     '("D" . meow-backward-delete)
+     '("e" . meow-next-word)
+     '("E" . meow-next-symbol)
+     '("f" . meow-find)
+     '("g" . meow-cancel-selection)
+     '("G" . meow-grab)
+     '("h" . meow-insert)
+     '("H" . meow-open-above)
+     '("j" . meow-left)
+     '("J" . meow-left-expand)
+     '("k" . meow-next)
+     '("K" . meow-next-expand)
+     '("i" . meow-prev)
+     '("I" . meow-prev-expand)
+     '("l" . meow-right)
+     '("L" . meow-right-expand)
+     '("m" . meow-join)
+     '("n" . meow-search)
+     '("o" . meow-block)
+     '("O" . meow-to-block)
+     '("p" . meow-yank)
+     '("q" . meow-quit)
+     '("Q" . meow-goto-line)
+     '("r" . meow-replace)
+     '("R" . meow-swap-grab)
+     '("s" . meow-kill)
+     '("t" . meow-till)
+     '("u" . meow-undo)
+     '("U" . meow-undo-in-selection)
+     '("v" . meow-visit)
+     '("w" . meow-mark-word)
+     '("W" . meow-mark-symbol)
+     '("x" . meow-line)
+     '("X" . meow-goto-line)
+     '("y" . meow-save)
+     '("Y" . meow-sync-grab)
+     '("z" . meow-pop-selection)
+     '("'" . repeat)
+     '("<escape>" . ignore)))
+
+  ;; Run the setup function
+  (meow-setup)
+
+  ;; Enable Meow globally
+  (meow-global-mode 1))
+
+(use-package hl-todo
+  :ensure t
+  :config
+  (global-hl-todo-mode 1)
+  (setq hl-todo-keyword-faces
+        '(("TODO"   . (:inherit error :weight bold))
+          ("FIXME"  . (:inherit error :weight bold))
+          ("DEBUG"  . (:inherit warning :weight bold))
+          ("GOTCHA" . (:inherit warning :weight bold))
+          ("STUB"   . (:inherit font-lock-keyword-face :weight bold))
+          ("HACK"   . (:inherit warning :weight bold))
+          ("NOTE"   . (:inherit success :weight bold))))
+  (keymap-set hl-todo-mode-map "C-c p" #'hl-todo-previous)
+  (keymap-set hl-todo-mode-map "C-c n" #'hl-todo-next)
+  (keymap-set hl-todo-mode-map "C-c o" #'hl-todo-occur))
+
+(global-eldoc-mode -1)
+
+;; ;; disable menu bar in terminal
+;; (when (not (display-graphic-p))
+;;   (menu-bar-mode -1))
+
+
+;; Linting ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package flycheck
+  :ensure t
+  :hook ((prog-mode . flycheck-mode))
+  ;; :config
+  ;; (setq-default
+  ;;  flycheck-standard-error-navigation nil ;; prevent flycheck from rebinding next-error (M-g n)
+  ;;  flycheck-disabled-checkers '(python-pycompile racket sass scheme-chicken)
+  ;;  flycheck-emacs-lisp-load-path 'inherit
+  ;;  flycheck-flake8rc "setup.cfg")
+  ;; (flycheck-add-mode 'javascript-eslint 'typescript-mode)
+  )
+
+
+
+;; END MY STUFF --------------------------------------------------------------------------------
 
 ;; Auto-revert in Emacs is a feature that automatically updates the
 ;; contents of a buffer to reflect changes made to the underlying file
@@ -376,11 +653,6 @@
 
 ;; --------------------------------------------------------------------------------
 
-(mapc #'disable-theme custom-enabled-themes)  ; Disable all active themes
-(load-theme 'modus-operandi t)  ; Load the built-in theme
-
-;; --------------------------------------------------------------------------------
-
 ;; The stripspace Emacs package provides stripspace-local-mode, a minor mode
 ;; that automatically removes trailing whitespace and blank lines at the end of
 ;; the buffer when saving.
@@ -438,6 +710,78 @@
   :commands (eglot-ensure
              eglot-rename
              eglot-format-buffer))
+
+
+;; Python LSP
+
+;; Configure Eglot to enable or disable certain options for the pylsp server
+;; in Python development. (Note that a third-party tool,
+;; https://github.com/python-lsp/python-lsp-server, must be installed),
+(add-hook 'python-mode-hook #'eglot-ensure)
+(add-hook 'python-ts-mode-hook #'eglot-ensure)
+(setq-default eglot-workspace-configuration
+              `(:pylsp (:plugins
+                        (;; Fix imports and syntax using `eglot-format-buffer`
+                         :isort (:enabled t)
+                         :autopep8 (:enabled t)
+
+                         ;; Syntax checkers (works with Flymake)
+                         :pylint (:enabled t)
+                         :pycodestyle (:enabled t)
+                         :flake8 (:enabled t)
+                         :pyflakes (:enabled t)
+                         :pydocstyle (:enabled t)
+                         :mccabe (:enabled t)
+
+                         :yapf (:enabled :json-false)
+                         :rope_autoimport (:enabled :json-false)))))
+
+
+
+;; RACKET;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(use-package racket-mode
+  :ensure t
+  :mode (("\\.rkt\\'" . racket-mode)
+                                        ;  ("\\.scrbl\\'" . racket-hash-lang-mode)
+         )
+  :after flycheck
+  :bind (:map racket-mode-map
+                                        ; ("C-c C-m" . jb-racket-run-main)
+              ("C-c C-d" . racket-xp-describe)
+              ("C-c C-r" . racket-xp-rename)
+                                        ; ("C-c C-s" . jb-insert-lisp-section)
+              ("C-c r t" . racket-tidy-requires)
+              ("C-c r i" . racket-add-require-for-identifier)
+              ("C-c ."   . xref-find-definitions)
+              ("C-c ,"   . xref-go-back))
+  :config
+  (with-eval-after-load 'racket-hash-lang
+    (define-key racket-hash-lang-mode-map (kbd "C-c C-d") 'racket-xp-describe)
+    (define-key racket-hash-lang-mode-map (kbd "C-c C-r") 'racket-xp-rename)
+    (define-key racket-hash-lang-mode-map (kbd "C-c .") 'xref-find-definitions)
+    (define-key racket-hash-lang-mode-map (kbd "C-c ,") 'xref-go-back))
+
+  (flycheck-define-checker racket-review
+    "check racket source code using racket-review"
+    :command ("raco" "review" source)
+    :error-patterns
+    ((error line-start (file-name) ":" line ":" column ":error:" (message) line-end)
+     (warning line-start (file-name) ":" line ":" column ":warning:" (message) line-end))
+    :modes racket-mode)
+
+  (add-to-list 'flycheck-checkers 'racket-review)
+
+  )
+
+(add-hook 'racket-mode-hook #'racket-xp-mode)
+(add-hook 'racket-hash-lang-mode-hook #'racket-xp-mode)
+
+(use-package scribble-mode
+  :mode "\\.scrbl\\'")
+
+(use-package pollen-mode
+  :mode "\\.p[mp]?\\'")
 
 ;; --------------------------------------------------------------------------------
 
@@ -840,20 +1184,12 @@
 
 ;; --------------------------------------------------------------------------------
 
-;; Set the default font to DejaVu Sans Mono with specific size and weight
-(set-face-attribute 'default nil
-                    :height 130 :weight 'normal :family "DejaVu Sans Mono")
-
-;; --------------------------------------------------------------------------------
-
 (use-package persist-text-scale
   :commands (persist-text-scale-mode
              persist-text-scale-restore)
 
   :hook (after-init . persist-text-scale-mode)
-
-  :custom
-  (text-scale-mode-step 1.07))
+  )
 
 ;; --------------------------------------------------------------------------------
 
@@ -869,10 +1205,13 @@
 (setq column-number-mode t)
 (setq mode-line-position-column-line-format '("%l:%C"))
 
-;; Display of line numbers in the buffer:
-(setq-default display-line-numbers-type 'relative)
-(dolist (hook '(prog-mode-hook text-mode-hook conf-mode-hook))
-  (add-hook hook #'display-line-numbers-mode))
+                                        ; disable line numbers in the buffer
+(setq display-line-numbers-type nil)
+
+;; ;; Display of line numbers in the buffer:
+;; (setq-default display-line-numbers-type 'relative)
+;; (dolist (hook '(prog-mode-hook text-mode-hook conf-mode-hook))
+;;   (add-hook hook #'display-line-numbers-mode))
 
 ;; Set the maximum level of syntax highlighting for Tree-sitter modes
 (setq treesit-font-lock-level 4)
