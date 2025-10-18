@@ -772,10 +772,9 @@
 
   (add-to-list 'flycheck-checkers 'racket-review)
 
-  )
+  :hook ((racket-mode . racket-xp-mode)
+         (racket-hash-lang-mode . racket-xp-mode)))
 
-(add-hook 'racket-mode-hook #'racket-xp-mode)
-(add-hook 'racket-hash-lang-mode-hook #'racket-xp-mode)
 
 (use-package scribble-mode
   :mode "\\.scrbl\\'")
