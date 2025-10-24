@@ -1,7 +1,7 @@
 # ignore minimal-emacs symlinks
 early-init.el
 init.el
-
+custom.el
 
 var/
 eln-cache/

@@ -5,6 +5,16 @@
 
 ;; MY STUFF --------------------------------------------------------------------------------
 
+;; Make Emacs inherit PATH from shell on macOS
+(use-package exec-path-from-shell
+  :ensure t
+  :config
+  (when (memq window-system '(mac ns))
+    (exec-path-from-shell-initialize)))
+
+(add-to-list 'exec-path "/Applications/Racket v8.17/bin")
+(add-to-list 'exec-path "/opt/homebrew/bin/")
+
 (when (eq system-type 'darwin)
   (setq mac-option-key-is-meta nil)
   (setq mac-command-key-is-meta t)
@@ -30,7 +40,41 @@
 (mapc #'disable-theme custom-enabled-themes)
 
 (set-face-attribute 'default nil
-                    :height 150 :weight 'medium :family "Dank Mono")
+                    :height 130
+                    :weight 'regular
+                    :family "Fira Code"
+                    ;; :family "Fira Code"
+                    )
+
+
+;; This assumes you've installed the package via MELPA.
+(use-package ligature
+  :config
+  ;; Enable the "www" ligature in every possible major mode
+  (ligature-set-ligatures 't '("www"))
+  ;; Enable traditional ligature support in eww-mode, if the
+  ;; `variable-pitch' face supports it
+  (ligature-set-ligatures 'eww-mode '("ff" "fi" "ffi"))
+  ;; Enable all Cascadia Code ligatures in programming modes
+  (ligature-set-ligatures 'prog-mode '("|||>" "<|||" "<==>" "<!--" "####" "~~>" "***" "||=" "||>"
+                                       ":::" "::=" "=:=" "===" "==>" "=!=" "=>>" "=<<" "=/=" "!=="
+                                       "!!." ">=>" ">>=" ">>>" ">>-" ">->" "->>" "-->" "---" "-<<"
+                                       "<~~" "<~>" "<*>" "<||" "<|>" "<$>" "<==" "<=>" "<=<" "<->"
+                                       "<--" "<-<" "<<=" "<<-" "<<<" "<+>" "</>" "###" "#_(" "..<"
+                                       "..." "+++" "/==" "///" "_|_" "www" "&&" "^=" "~~" "~@" "~="
+                                       "~>" "~-" "**" "*>" "*/" "||" "|}" "|]" "|=" "|>" "|-" "{|"
+                                       "[|" "]#" "::" ":=" ":>" ":<" "$>" "==" "=>" "!=" "!!" ">:"
+                                       ">=" ">>" ">-" "-~" "-|" "->" "--" "-<" "<~" "<*" "<|" "<:"
+                                       "<$" "<=" "<>" "<-" "<<" "<+" "</" "#{" "#[" "#:" "#=" "#!"
+                                       "##" "#(" "#?" "#_" "%%" ".=" ".-" ".." ".?" "+>" "++" "?:"
+                                       "?=" "?." "??" ";;" "/*" "/=" "/>" "//" "__" "~~" "(*" "*)"
+                                       "\\\\" "://"))
+  ;; Enables ligature checks globally in all buffers. You can also do it
+  ;; per mode with `ligature-mode'.
+  (global-ligature-mode t))
+
+
+;; -> ~~> =============== w
 
 ;; Themes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defvar jb-current-theme-mode nil
@@ -100,40 +144,69 @@
 
 (jb-detect-and-apply-system-theme)
 
-;; Olivetti ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(use-package olivetti
-  :ensure t
-                                        ; :bind (("C-c z" . olivetti-mode))
+(use-package perfect-margin
+  :custom
+  (perfect-margin-visible-width 128)
   :config
-  (setq-default olivetti-body-width 100))
-
-(use-package auto-olivetti
-  :custom (auto-olivetti-enabled-modes '(prog-mode helpful-mode ibuffer-mode image-mode elisp-mode racket-mode python-mode))
-  :ensure (auto-olivetti :host sourcehut :repo "ashton314/auto-olivetti")
-  :config
-  (auto-olivetti-mode))
+  (perfect-margin-mode t)
+  ;; auto-center minibuffer windows
+  (setq perfect-margin-ignore-filters nil)
+  ;; auto-center special windows
+  (setq perfect-margin-ignore-regexps nil)
+  ;; only set left margin
+  (setq perfect-margin-only-set-left-margin t)
+  ;; add additinal bding on margin area
+  (dolist (margin '("<left-margin> " "<right-margin> "))
+    (global-set-key (kbd (concat margin "<mouse-1>")) 'ignore)
+    (global-set-key (kbd (concat margin "<mouse-3>")) 'ignore)
+    (dolist (multiple '("" "double-" "triple-"))
+      (global-set-key (kbd (concat margin "<" multiple "wheel-up>")) 'mwheel-scroll)
+      (global-set-key (kbd (concat margin "<" multiple "wheel-down>")) 'mwheel-scroll))))
 
 ;; keep me from accidentally zooming after using scroll wheel
 (global-unset-key (kbd "C-<wheel-up>"))
 (global-unset-key (kbd "C-<wheel-down>"))
 
-                                        ; for terminal emacs
+;; for terminal emacs
 (define-key key-translation-map (kbd "<f12>") 'event-apply-control-modifier)
+
+;; GIT
 
 ;; Ensure transient is upgraded before magit loads
 (use-package transient
   :ensure t)
 
+(use-package diff-hl
+  :ensure t
+  :config
+  (global-diff-hl-mode))
+
+(use-package fullframe
+  :commands (fullframe))
+
 (use-package magit
   :ensure t
-  :bind (("C-x g" . magit-status)))
+  :bind (("C-x g" . magit-status))
+  :config
+  (fullframe magit-status magit-mode-quit-window))
 
+(use-package difftastic
+  :ensure t)
 
 ;; SYMEX
 (use-package symex-core
   :ensure (:host github
                  :repo "drym-org/symex.el"
                  :files ("symex-core/symex*.el")))
+
+;; There's not that many commands to learn:
+;; ijkl directional
+;; C-ik (up down) for branch navigation
+;; M-ik (up down) for goto highest / lowest
+;; H / A for inserting before / after
+;; h / a for inserting at beginning / end
+;; u / U for undo / undo-redo (TODO: move to meow fallback?)
+;; TODO: does emacs have modal transparency?
 
 (use-package symex
   :after symex-core
@@ -156,15 +229,17 @@
      ("C-k" symex-climb-branch)
      ("M-i" symex-goto-lowest)
      ("M-k" symex-goto-highest)
-     ("gi" symex-next-visual-line)
+     ;; I prefer arrow keys tbh
+     ("gk" symex-next-visual-line)
      ("gj" backward-char)
-     ("gk" symex-previous-visual-line)
+     ("gi" symex-previous-visual-line)
      ("gl" forward-char)
      ("H" symex-insert-before :exit)
      ("A" symex-append-after :exit)
      ("a" symex-append-at-end :exit)
-     ("u" undo)
-     ("U" undo-redo))))
+     ;; ("u" undo)
+     ;; ("U" undo-redo)
+     )))
 
 (use-package symex-ide
   :after symex
@@ -191,6 +266,7 @@
     ;; Leader key bindings (accessed via SPC)
     (meow-leader-define-key
      ;; SPC j/k will run the original command in MOTION state
+     ;; TODO: fix these
      '("j" . "H-j")
      '("k" . "H-k")
      ;; Use SPC (0-9) for digit arguments
@@ -1174,6 +1250,24 @@
   :commands highlight-defined-mode
   :hook
   (emacs-lisp-mode . highlight-defined-mode))
+
+;; Displays visible indicators for page breaks
+(use-package page-break-lines
+  :ensure t
+  :commands (page-break-lines-mode
+             global-page-break-lines-mode)
+  :hook
+  (emacs-lisp-mode . page-break-lines-mode))
+
+;; Provides functions to find references to functions, macros, variables,
+;; special forms, and symbols in Emacs Lisp
+(use-package elisp-refs
+  :ensure t
+  :commands (elisp-refs-function
+             elisp-refs-macro
+             elisp-refs-variable
+             elisp-refs-special
+             elisp-refs-symbol))
 
 ;; --------------------------------------------------------------------------------
 
