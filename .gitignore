@@ -6,3 +6,4 @@ custom.el
 var/
 eln-cache/
 themes/
+elpa/
